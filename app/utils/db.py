@@ -9,9 +9,7 @@ def database_connect():
     
     return connection
 
-def execute_query(query, params=None, fetchone=False):
-    connection = database_connect()
-    cursor = connection.cursor()
+def execute_query(query, connection, cursor, params=None, fetchone=False):
     cursor.execute(query, params or ())
 
     # Determine if the query is a SELECT statement

@@ -1,7 +1,9 @@
 from flask import Blueprint, request, jsonify
 from mysql.connector import Error
 from bcrypt import hashpw, gensalt, checkpw
-from ..utils.db import execute_query
+from ..utils.db import execute_query, database_connect
+from flask_jwt_extended import create_access_token
+from datetime import timedelta
 
 user = Blueprint("user", __name__)
 
@@ -17,8 +19,17 @@ def sign_up():
     hashed_password = hashpw(password.encode("utf-8"), salt)
 
     try:
-        rowcount = execute_query("INSERT INTO User(username, password) VALUES(%s, %s)", (username, hashed_password))
-        return jsonify({"message": "User created successfully"}), 201
+        # Establish database connection
+        connection = database_connect()
+        cursor = connection.cursor()
+        
+        # Insert user in database
+        rowcount = execute_query("INSERT INTO User(username, password) VALUES(%s, %s)", 
+                                 connection, 
+                                 cursor,
+                                 (username, hashed_password))
+        
+        return jsonify({"message": "User created successfully with" + rowcount + "changed."}), 201
 
     except Error as e:
         print("Error while trying to connect to MySQL:", e)
@@ -32,18 +43,27 @@ def sign_in():
     password = data["password"].encode("utf-8")
 
     try:
+        # Establish database connection
+        connection = database_connect()
+        cursor = connection.cursor()
         
-            user = execute_query("SELECT * FROM user WHERE username = %s", (username, ), fetchone=True)
+        # Get user's data to check for existed state
+        user = execute_query("SELECT * FROM user WHERE username = %s", 
+                             connection, 
+                             cursor, 
+                             (username, ), 
+                             fetchone=True)
 
-            if user is not None:
-                stored_password = user[2].encode("utf-8")
-                if checkpw(password, stored_password):
-                    return jsonify({"message": "Authenticated successfully"}), 201
-                else: 
-                    return jsonify({"message": "Wrong password"}), 401
-            else:
-                return jsonify({"error": "User is not existed"}), 401
-            
+        if user is not None:
+            stored_password = user[2].encode("utf-8")
+            if checkpw(password, stored_password):
+                access_token = create_access_token(identity={"id": user[0], "username": user[1]}, expires_delta=timedelta(hours=24))
+                return jsonify({"access token": access_token}), 201
+            else: 
+                return jsonify({"message": "Wrong password"}), 401
+        else:
+            return jsonify({"error": "User is not existed"}), 401
+        
     except Error as e:
         print("Error while trying to connect to MySQL:", e)
         return jsonify({"error": str(e)}), 500
