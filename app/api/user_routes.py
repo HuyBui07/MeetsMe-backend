@@ -2,7 +2,7 @@ from flask import Blueprint, request, jsonify
 from mysql.connector import Error
 from bcrypt import hashpw, gensalt, checkpw
 from ..utils.db import execute_query, database_connect
-from flask_jwt_extended import create_access_token
+from flask_jwt_extended import create_access_token, jwt_required
 from datetime import timedelta
 
 user = Blueprint("user", __name__)
@@ -68,4 +68,25 @@ def sign_in():
         print("Error while trying to connect to MySQL:", e)
         return jsonify({"error": str(e)}), 500
     
+    
+@user.route("/search", methods=["GET"])
+def search_users():
+    data = request.get_json()
+    user_query = data["query"]
+    
+    try:
+        connection = database_connect()
+        cursor = connection.cursor()
+        
+        query = "SELECT * FROM user WHERE username LIKE %s"
+        params = (f"%{user_query}%", )
+        cursor.execute(query, params)
+        results = cursor.fetchall()
+        
+        user_list = [{"id": result[0], "username": result[1]} for result in results]
+        return jsonify(user_list), 200
+        
+    except Error as e:
+        print("Error while trying to connect to MySQL:", e)
+        return jsonify({"error": str(e)}), 500
             

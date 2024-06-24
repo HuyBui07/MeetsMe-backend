@@ -28,7 +28,7 @@ def add_group():
         new_group_id = cursor.lastrowid
         
         # Insert new group member
-        group_member_rowcount = execute_query("INSERT INTO groupmember (group_id, user_id) VALUES (%s, %s)", 
+        group_member_rowcount = execute_query("INSERT INTO group_member (group_id, user_id) VALUES (%s, %s)", 
                                  connection=connection, 
                                  cursor=cursor, 
                                  params=(new_group_id, user_id))
@@ -56,7 +56,7 @@ def get_all_groups():
         cursor = connection.cursor()
         
         # Get all user's groups
-        query = "SELECT group_id, `group`.name FROM groupmember INNER JOIN `group` ON groupmember.group_id = `group`.id WHERE user_id = %s;"
+        query = "SELECT group_id, `group`.name FROM group_member INNER JOIN `group` ON group_member.group_id = `group`.id WHERE user_id = %s;"
         params = (user_id, )
         cursor.execute(query, params)
         groups = cursor.fetchall()
@@ -81,7 +81,7 @@ def get_group_details():
         connection = database_connect()
         cursor = connection.cursor()
         
-        # Get all user's groups
+        # Get a specific group's details
         query = "SELECT `group`.id, name, user.username FROM `group` INNER JOIN user ON `group`.creator_id = user.id WHERE `group`.id = %s;"
         params = (group_id, )
         cursor.execute(query, params)
@@ -95,3 +95,35 @@ def get_group_details():
         print("Error while trying to connect to MySQL:", e)
         return jsonify({"error": str(e)}), 500
     
+# Send group invitation
+@group.route("/invitation")
+@jwt_required
+def group_invitation():
+    # Get request body's data
+    data = request.get_json()
+    receiver_id = data["receiver_id"]
+    group_id = data["group_id"]
+    
+    # Get current user's id
+    current_user = get_jwt_identity()
+    user_id = current_user["id"]
+    
+    # Insert group request
+    try:
+        connection = database_connect()
+        cursor = connection.cursor()
+        
+        query = "INSERT INTO group_invitation (sender_id, receiver_id, group_id) VALUES (%s, %s, %s)"
+        params = (user_id, receiver_id, group_id)
+        cursor.execute(query, params)
+        connection.commit()
+        
+        cursor.close()
+        connection.close()
+        
+    except Error as e:
+        print("Error while trying to work with MySQL:", e)
+        return jsonify({"error": str(e)}), 500
+    
+
+# Accept group request
