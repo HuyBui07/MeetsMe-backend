@@ -60,6 +60,8 @@ def get_all_groups():
         params = (user_id, )
         cursor.execute(query, params)
         groups = cursor.fetchall()
+        cursor.close()
+        connection.close()
         
         if groups:
             groups_list = [{"group_id": group[0], "name": group[1]} for group in groups]
@@ -87,6 +89,9 @@ def get_group_details():
         cursor.execute(query, params)
         group = cursor.fetchone()
         
+        cursor.close()
+        connection.close()
+        
         if group:
             group_details = {"group_id": group[0], "group_name": group[1], "group_creator": group[2]}
             return jsonify(group_details), 200
@@ -96,8 +101,8 @@ def get_group_details():
         return jsonify({"error": str(e)}), 500
     
 # Send group invitation
-@group.route("/invitation")
-@jwt_required
+@group.route("/invite", methods=["POST"])
+@jwt_required()
 def group_invitation():
     # Get request body's data
     data = request.get_json()
@@ -121,9 +126,79 @@ def group_invitation():
         cursor.close()
         connection.close()
         
+        return jsonify({"message": "Group invitation sent successfully"}), 200
+        
     except Error as e:
         print("Error while trying to work with MySQL:", e)
         return jsonify({"error": str(e)}), 500
     
+# Get group invitations
+@group.route("/invitations", methods=["GET"])
+@jwt_required()
+def get_group_invitations():
+    # Get current's user id
+    current_user = get_jwt_identity()
+    user_id = current_user["id"]
+    
+    try:
+        connection = database_connect()
+        cursor = connection.cursor()
+        
+        query = "select sender_id, username, receiver_id, group_id, name from group_invitation inner join user on group_invitation.sender_id = user.id inner join `group` on group_invitation.group_id = `group`.id where receiver_id = %s;"
+        params = (user_id, )
+        cursor.execute(query, params)
+        invitations = cursor.fetchall()
+        
+        cursor.close()
+        connection.close()
+        
+        
+        if invitations:
+            invitations_list = [{"sender_id": invitation[0], "sender_name": invitation[1], "group_id": invitation[3], "group_name": invitation[4]} for invitation in invitations]
+            return jsonify(invitations_list), 200
+        else:
+            return jsonify([]), 200
+        
+    except Error as e:
+        print("Error while trying to work with MySQL:", e)
+        return jsonify({"error": str(e)}), 500
+            
 
-# Accept group request
+# Response group invitation
+@group.route("/response", methods=["POST"])
+@jwt_required()
+def group_invitation_response():
+    # Get request body's data
+    data = request.get_json()
+    sender_id = data["sender_id"]
+    group_id = data["group_id"]
+    response = data["response"]
+    
+    # Get current user's id
+    current_user = get_jwt_identity()
+    receiver_id = current_user["id"]
+    
+    # Insert group request
+    try:
+        connection = database_connect()
+        cursor = connection.cursor()
+        
+        if response == "accept":
+            query = "INSERT INTO group_member (group_id, user_id) VALUES (%s, %s)"
+            params = (group_id, receiver_id)
+            cursor.execute(query, params)
+            connection.commit()
+            
+        query = "DELETE FROM group_invitation WHERE sender_id = %s AND receiver_id = %s AND group_id = %s"
+        params = (sender_id, receiver_id, group_id)
+        cursor.execute(query, params)
+        connection.commit()
+        
+        cursor.close()
+        connection.close()
+        
+        return jsonify({"message": "Group invitation response sent successfully with" + response}), 200
+        
+    except Error as e:
+        print("Error while trying to work with MySQL:", e)
+        return jsonify({"error": str(e)}), 500

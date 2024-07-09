@@ -29,7 +29,7 @@ def sign_up():
                                  cursor,
                                  (username, hashed_password))
         
-        return jsonify({"message": "User created successfully with" + rowcount + "changed."}), 201
+        return jsonify({"message": "User created successfully!"}), 201
 
     except Error as e:
         print("Error while trying to connect to MySQL:", e)
@@ -57,8 +57,8 @@ def sign_in():
         if user is not None:
             stored_password = user[2].encode("utf-8")
             if checkpw(password, stored_password):
-                access_token = create_access_token(identity={"id": user[0], "username": user[1]}, expires_delta=timedelta(hours=24))
-                return jsonify({"access token": access_token}), 201
+                access_token = create_access_token(identity={"id": user[0], "username": user[1]}, expires_delta=timedelta(days=1))
+                return jsonify({"accessToken": access_token}), 201
             else: 
                 return jsonify({"message": "Wrong password"}), 401
         else:
@@ -66,6 +66,7 @@ def sign_in():
         
     except Error as e:
         print("Error while trying to connect to MySQL:", e)
+        
         return jsonify({"error": str(e)}), 500
     
     
