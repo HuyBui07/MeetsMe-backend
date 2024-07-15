@@ -100,6 +100,33 @@ def get_group_details():
         print("Error while trying to connect to MySQL:", e)
         return jsonify({"error": str(e)}), 500
     
+# Get all groups members
+@group.route("/get_group_members", methods=["GET"])
+@jwt_required()
+def get_group_members():
+    group_id = request.args.get("group_id")
+    
+    try:
+        connection = database_connect()
+        cursor = connection.cursor()
+        
+        # Get a specific group's details
+        query = "select user_id as member_id, username as member_name, group_id from group_member join user on user_id = id where group_id= %s;"
+        params = (group_id, )
+        cursor.execute(query, params)
+        group = cursor.fetchall()
+        
+        cursor.close()
+        connection.close()
+        
+        if group:
+            group_members = [{"member_id": member[0], "member_name": member[1]} for member in group]
+            return jsonify(group_members), 200
+        
+    except Error as e:
+        print("Error while trying to connect to MySQL:", e)
+        return jsonify({"error": str(e)}), 500
+    
 # Send group invitation
 @group.route("/invite", methods=["POST"])
 @jwt_required()
@@ -154,7 +181,7 @@ def get_group_invitations():
         
         
         if invitations:
-            invitations_list = [{"sender_id": invitation[0], "sender_name": invitation[1], "group_id": invitation[3], "group_name": invitation[4]} for invitation in invitations]
+            invitations_list = [{"group_id": invitation[3], "group_name": invitation[4]} for invitation in invitations]
             return jsonify(invitations_list), 200
         else:
             return jsonify([]), 200
@@ -170,7 +197,6 @@ def get_group_invitations():
 def group_invitation_response():
     # Get request body's data
     data = request.get_json()
-    sender_id = data["sender_id"]
     group_id = data["group_id"]
     response = data["response"]
     
@@ -189,8 +215,8 @@ def group_invitation_response():
             cursor.execute(query, params)
             connection.commit()
             
-        query = "DELETE FROM group_invitation WHERE sender_id = %s AND receiver_id = %s AND group_id = %s"
-        params = (sender_id, receiver_id, group_id)
+        query = "DELETE FROM group_invitation WHERE receiver_id = %s AND group_id = %s"
+        params = (receiver_id, group_id)
         cursor.execute(query, params)
         connection.commit()
         

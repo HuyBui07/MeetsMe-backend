@@ -71,9 +71,9 @@ def sign_in():
     
     
 @user.route("/search", methods=["GET"])
+@jwt_required()
 def search_users():
-    data = request.get_json()
-    user_query = data["query"]
+    user_query = request.args.get("query")
     
     try:
         connection = database_connect()

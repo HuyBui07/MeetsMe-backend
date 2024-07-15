@@ -128,9 +128,8 @@ def get_all_meets():
 @jwt_required()
 def get_meet_details():
     # Get inputs
-    data = request.get_json()
-    meet_id = data["meet_id"]
-    group_id = data["group_id"]
+    meet_id = request.args.get('meet_id')
+    group_id = request.args.get('group_id')
     
     # Get user id from access token
     current_user = get_jwt_identity()
@@ -227,8 +226,8 @@ def accept_meet():
 @jwt_required()
 def get_all_attendees():
     # Get inputs
-    data = request.get_json()
-    meet_id = data["meet_id"]
+    
+    meet_id = request.args.get('meet_id')
     
     try:
         connection = database_connect()
