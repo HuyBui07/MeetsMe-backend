@@ -23,6 +23,16 @@ def sign_up():
         connection = database_connect()
         cursor = connection.cursor()
         
+        # Check existed account
+        user = execute_query("SELECT * FROM user WHERE username = %s", 
+                             connection, 
+                             cursor, 
+                             (username, ), 
+                             fetchone=True)
+        
+        if user is not None:
+            return jsonify({"message": "User already existed"}), 409
+        
         # Insert user in database
         rowcount = execute_query("INSERT INTO User(username, password) VALUES(%s, %s)", 
                                  connection, 
